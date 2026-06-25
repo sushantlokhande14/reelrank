@@ -1,0 +1,54 @@
+name: Daily TMDB refresh
+
+# Rebuilds the serving index every day so recommendations include current titles.
+# Requires the repo secret TMDB_API_KEY (Settings -> Secrets and variables ->
+# Actions). The deploy step that ships the rebuilt index to the live backend is
+# wired up in the hosting phase; for now the index is uploaded as an artifact.
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # 09:00 UTC daily
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache data, model artifacts, and the sentence model
+        uses: actions/cache@v4
+        with:
+          path: |
+            data
+            artifacts
+            ~/.cache/huggingface
+          key: reelrank-${{ hashFiles('config/default.yaml', 'src/reelrank/**') }}
+
+      - name: Install reelrank and Proxima
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[train]"
+          pip install "git+https://github.com/sushantlokhande14/proxima.git"
+
+      - name: Train the two-tower if artifacts are missing
+        run: |
+          if [ ! -f artifacts/ml-latest-small/two_tower.pt ]; then
+            python scripts/train_two_tower.py --config config/default.yaml
+          fi
+
+      - name: Refresh the live catalog from TMDB
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: python scripts/refresh_tmdb.py --config config/default.yaml
+
+      - name: Upload the rebuilt serving index
+        uses: actions/upload-artifact@v4
+        with:
+          name: serving-index
+          path: artifacts/ml-latest-small/serving/
+          retention-days: 7

@@ -65,6 +65,17 @@ class ContentCfg(BaseModel):
     content_weight: float = 1.0
 
 
+class TmdbCfg(BaseModel):
+    base_url: str = "https://api.themoviedb.org/3"
+    image_base: str = "https://image.tmdb.org/t/p"
+    poster_size: str = "w500"
+    language: str = "en-US"
+    region: str = "US"
+    max_cast: int = 5            # top-billed cast folded into the content text
+    request_timeout: float = 15.0
+    live_pages: int = 2          # pages of trending + now-playing to pull (20/page)
+
+
 class RankerCfg(BaseModel):
     hidden: list[int] = [128, 64]
     dropout: float = 0.1
@@ -90,6 +101,7 @@ class Config(BaseModel):
     content: ContentCfg = ContentCfg()
     retrieval: RetrievalCfg = RetrievalCfg()
     ranker: RankerCfg = RankerCfg()
+    tmdb: TmdbCfg = TmdbCfg()
     eval: EvalCfg = EvalCfg()
 
 

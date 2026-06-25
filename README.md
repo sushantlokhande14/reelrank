@@ -38,7 +38,7 @@ then layer on quality and features. Honest checklist of where it is:
 - [x] Two-tower retrieval (in-batch-negative softmax, logQ correction) over Proxima
 - [x] Content embeddings, content-similarity baseline, hybrid item tower, cold-start eval
 - [x] Neural ranker (stage 2): two-stage retrieve-and-rank
-- [ ] TMDB live catalog + daily index refresh
+- [x] TMDB live catalog + daily index refresh
 - [ ] Natural-language vibe search (optionally via the Relay LLM gateway)
 - [ ] FastAPI backend + React/TypeScript frontend
 - [ ] Dockerized, deployed live demo
@@ -93,6 +93,14 @@ eval rewards. Popularity-sampled negatives avoid that contamination. The ranker'
 value is expected to grow on the dense `ml-25m` run and once TMDB side features
 (cast, director, recency) give it signal the retriever does not already encode.
 
+**Live catalog.** A daily job pulls trending and now-playing titles from the TMDB
+API (plot, genres, cast, director, posters), embeds each from its content, and
+folds it into the serving index through the hybrid model's cold-start path. So a
+movie released after MovieLens froze, with zero ratings, is still recommendable
+the day it appears. `python scripts/refresh_tmdb.py` rebuilds the index (1,952
+MovieLens items plus the current titles); `.github/workflows/refresh.yml` runs it
+on a daily cron.
+
 ## Methodology
 
 **Temporal split (no future leakage).** Two protocols, both leakage-free:
@@ -134,8 +142,12 @@ python scripts/evaluate_baselines.py  --config config/default.yaml   # popularit
 python scripts/train_two_tower.py     --config config/default.yaml   # stage 1: retrieval
 python scripts/train_ranker.py        --config config/default.yaml   # stage 2: re-ranking
 python scripts/evaluate_cold_start.py --config config/default.yaml   # cold-start eval
+python scripts/refresh_tmdb.py        --config config/default.yaml   # live TMDB catalog (needs TMDB_API_KEY)
 python scripts/train_two_tower.py     --config config/ml25m.yaml     # headline run
 ```
+
+Copy `.env.example` to `.env` and add your `TMDB_API_KEY` (free, from
+themoviedb.org) for the live-catalog step. `.env` is gitignored.
 
 The first run downloads MovieLens into `data/raw/` and caches the processed split
 under `data/processed/`. Trained embeddings and the Proxima index land in
@@ -153,6 +165,7 @@ src/reelrank/
   training/             two-tower + ranker training, artifact pipeline
   retrieval/            Proxima index wrapper + stage-1 recommender
   ranking/              stage-2 retrieve-then-rank recommender
+  tmdb/                 TMDB client + live-catalog assembly
   baselines/            popularity + content similarity
   eval/                 metrics + leakage-free harness
 scripts/                runnable entry points
@@ -166,6 +179,8 @@ tests/                  pytest
 - [Relay](https://github.com/sushantlokhande14/Relay): LLM gateway, planned for
   natural-language query understanding and explanations.
 - [MovieLens](https://grouplens.org/datasets/movielens/) for interactions and
-  [TMDB](https://www.themoviedb.org/) for the live catalog (planned).
+  [TMDB](https://www.themoviedb.org/) for the live catalog, posters, and metadata.
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 MIT licensed.

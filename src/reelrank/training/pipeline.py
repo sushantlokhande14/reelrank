@@ -11,9 +11,13 @@ from pathlib import Path
 
 import numpy as np
 
+import torch
+from torch import nn
+
 from reelrank.config import Config
 from reelrank.data.movielens import MovieLensData, build_dataset
 from reelrank.features.content import build_content_embeddings
+from reelrank.models.factory import build_model
 from reelrank.retrieval.proxima_index import ProximaIndex
 from reelrank.training.two_tower_trainer import export_embeddings, train_two_tower
 from reelrank.utils import set_seed
@@ -58,3 +62,18 @@ def ensure_two_tower_artifacts(cfg: Config, verbose: bool = True) -> RetrievalAr
         index.save(index_path)
 
     return RetrievalArtifacts(data, content_emb, user_emb, item_emb, index)
+
+
+def load_two_tower_model(
+    cfg: Config, data: MovieLensData, content_emb: np.ndarray
+) -> nn.Module:
+    """Reload the trained two-tower from its saved weights (for embed_cold etc.)."""
+    state_path = Path(cfg.paths.artifacts) / cfg.data.dataset / "two_tower.pt"
+    if not state_path.exists():
+        raise FileNotFoundError(
+            f"{state_path} not found; run scripts/train_two_tower.py first"
+        )
+    model = build_model(cfg, data, content_emb)
+    model.load_state_dict(torch.load(state_path, map_location="cpu", weights_only=True))
+    model.eval()
+    return model

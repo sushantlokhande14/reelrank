@@ -1,10 +1,29 @@
-"""Small shared helpers: seeding and device resolution."""
+"""Small shared helpers: seeding, device resolution, and .env loading."""
 
 from __future__ import annotations
 
+import os
 import random
+from pathlib import Path
 
 import numpy as np
+
+
+def load_env(path: str | Path = ".env") -> None:
+    """Populate os.environ from a .env file (real env vars take precedence).
+
+    A tiny loader so scripts pick up secrets like TMDB_API_KEY without an extra
+    dependency. In production the host sets these as real environment variables.
+    """
+    env_path = Path(path)
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
 def set_seed(seed: int) -> None:
