@@ -1,0 +1,55 @@
+# reelrank default configuration.
+# Override per-run by passing --config to the scripts in scripts/.
+seed: 42
+
+paths:
+  data_raw: data/raw
+  data_processed: data/processed
+  artifacts: artifacts
+
+data:
+  # ml-latest-small (~3 MB) for fast dev loops; ml-25m for the reported metrics.
+  dataset: ml-latest-small
+  positive_threshold: 4.0      # ratings >= this count as a positive interaction
+  min_user_interactions: 5     # drop sparse users (cold start handled separately)
+  min_item_interactions: 5     # drop sparse items
+
+split:
+  # Dev default: per-user temporal holdout. Stable metrics on the small dataset
+  # (every active user contributes to eval). The headline ml-25m run uses
+  # strategy: global -- see config/ml25m.yaml.
+  strategy: user
+  val_fraction: 0.1
+  test_fraction: 0.1
+
+model:
+  embedding_dim: 64
+  user_hidden: [128, 64]
+  item_hidden: [128, 64]
+  dropout: 0.1
+
+train:
+  epochs: 10
+  batch_size: 4096
+  lr: 0.003
+  weight_decay: 0.0001
+  temperature: 0.05            # softmax temperature for in-batch negatives
+  device: auto                 # auto | cpu | cuda
+
+content:
+  model: sentence-transformers/all-MiniLM-L6-v2   # 384-d, small, fast
+  batch_size: 256
+  max_tags: 10                 # top tags per movie folded into the content text
+  id_weight: 1.0               # weight on the collaborative id embedding
+  content_weight: 1.0          # weight on the content feature (0 = pure collaborative)
+
+retrieval:
+  proxima_space: ip            # dot-product space for two-tower embeddings
+  M: 16
+  ef_construction: 200
+  ef_search: 128
+  mode: sq8                    # int8 traversal + float32 re-rank (low memory)
+  candidates: 200              # top-N candidates pulled per query
+
+eval:
+  k_values: [10, 20, 50, 100]

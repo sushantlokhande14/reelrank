@@ -1,0 +1,51 @@
+# Headline configuration: the full MovieLens 25M run whose numbers go in the
+# README. Uses a strict global temporal split (no future leakage at all).
+seed: 42
+
+paths:
+  data_raw: data/raw
+  data_processed: data/processed
+  artifacts: artifacts
+
+data:
+  dataset: ml-25m
+  positive_threshold: 4.0
+  min_user_interactions: 5
+  min_item_interactions: 5
+
+split:
+  strategy: global
+  val_fraction: 0.1
+  test_fraction: 0.1
+
+model:
+  embedding_dim: 64
+  user_hidden: [128, 64]
+  item_hidden: [128, 64]
+  dropout: 0.1
+
+train:
+  epochs: 10
+  batch_size: 8192
+  lr: 0.003
+  weight_decay: 0.0001
+  temperature: 0.05
+  device: auto
+
+content:
+  model: sentence-transformers/all-MiniLM-L6-v2
+  batch_size: 512
+  max_tags: 10
+  id_weight: 1.0
+  content_weight: 1.0
+
+retrieval:
+  proxima_space: ip
+  M: 16
+  ef_construction: 200
+  ef_search: 128
+  mode: sq8
+  candidates: 200
+
+eval:
+  k_values: [10, 20, 50, 100]

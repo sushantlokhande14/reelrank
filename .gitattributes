@@ -1,0 +1,7 @@
+# Normalize line endings: LF in the repo, regardless of OS checkout.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.idx binary
+*.bin binary
+*.npy binary
