@@ -96,6 +96,21 @@ def user_item_lists(data: MovieLensData, split: str) -> dict[int, np.ndarray]:
     return {int(u): v.to_numpy(dtype=np.int64) for u, v in grouped}
 
 
+def item_train_counts(data: MovieLensData) -> np.ndarray:
+    """Per-item training interaction count, indexed by item_idx."""
+    counts = np.zeros(data.n_items, dtype=np.int64)
+    vc = data.split_frame(SPLIT_TRAIN)["item_idx"].value_counts()
+    counts[vc.index.to_numpy()] = vc.to_numpy()
+    return counts
+
+
+def item_log_popularity(data: MovieLensData) -> np.ndarray:
+    """Standardized log popularity feature, indexed by item_idx (a ranking signal)."""
+    feature = np.log1p(item_train_counts(data).astype(np.float64))
+    feature = (feature - feature.mean()) / (feature.std() + 1e-8)
+    return feature.astype(np.float32)
+
+
 # --------------------------------------------------------------------------- #
 # internals
 # --------------------------------------------------------------------------- #

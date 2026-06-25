@@ -49,7 +49,17 @@ retrieval:
   ef_construction: 200
   ef_search: 128
   mode: sq8                    # int8 traversal + float32 re-rank (low memory)
-  candidates: 200              # top-N candidates pulled per query
+  candidates: 200              # top-N candidates pulled per query (re-rank depth)
+
+ranker:
+  hidden: [128, 64]
+  dropout: 0.1
+  epochs: 5
+  batch_size: 4096
+  lr: 0.001
+  weight_decay: 0.00001
+  n_negatives: 20              # negatives per positive in the listwise softmax
+  neg_alpha: 0.75             # popularity^alpha negative sampling
 
 eval:
   k_values: [10, 20, 50, 100]

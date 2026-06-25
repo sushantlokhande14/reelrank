@@ -17,9 +17,21 @@ import pandas as pd
 
 from reelrank.config import Config
 from reelrank.data.download import download_movielens
-from reelrank.data.movielens import MovieLensData
+from reelrank.data.movielens import SPLIT_TRAIN, MovieLensData, user_item_lists
 
 NO_GENRES = "(no genres listed)"
+
+
+def user_content_profiles(data: MovieLensData, content_emb: np.ndarray) -> np.ndarray:
+    """Per-user content taste vector: the L2-normalized mean of the content
+    embeddings of the items they liked in training. Shape (n_users, content_dim)."""
+    profiles = np.zeros((data.n_users, content_emb.shape[1]), dtype=np.float32)
+    for user, items in user_item_lists(data, SPLIT_TRAIN).items():
+        if len(items):
+            profiles[user] = content_emb[items].mean(axis=0)
+    norms = np.linalg.norm(profiles, axis=1, keepdims=True)
+    norms[norms == 0.0] = 1.0
+    return profiles / norms
 
 
 def build_item_documents(

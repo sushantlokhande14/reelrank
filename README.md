@@ -37,7 +37,7 @@ then layer on quality and features. Honest checklist of where it is:
 - [x] Popularity baseline
 - [x] Two-tower retrieval (in-batch-negative softmax, logQ correction) over Proxima
 - [x] Content embeddings, content-similarity baseline, hybrid item tower, cold-start eval
-- [ ] Neural ranker (stage 2)
+- [x] Neural ranker (stage 2): two-stage retrieve-and-rank
 - [ ] TMDB live catalog + daily index refresh
 - [ ] Natural-language vibe search (optionally via the Relay LLM gateway)
 - [ ] FastAPI backend + React/TypeScript frontend
@@ -74,6 +74,25 @@ items only:
 Content gives roughly ten times the recall on cold items. `python
 scripts/evaluate_cold_start.py` reproduces it.
 
+**Two-stage ranking.** The stage-2 ranker is an MLP that re-scores the candidates
+Proxima returns, using the two-tower embeddings plus a content-match term and item
+popularity, trained with a listwise sampled-softmax. On this small dev split it
+lifts Recall@10 a few percent over retrieval-only and lands close at NDCG@10;
+re-ranking helps the head of the list more than the tail.
+
+| model | Recall@10 | NDCG@10 | Recall@100 |
+|---|---|---|---|
+| retrieval only (two-tower) | 0.0598 | 0.0499 | 0.3673 |
+| retrieval + ranker | 0.0616 | 0.0469 | 0.3458 |
+
+One lesson worth recording: drawing the ranker's negatives from the retrieved
+candidates (the usual "hard negatives" advice) makes things sharply worse on
+sparse implicit data, because those retrieved-but-unobserved items include the
+user's held-out future positives, so the ranker learns to bury exactly what the
+eval rewards. Popularity-sampled negatives avoid that contamination. The ranker's
+value is expected to grow on the dense `ml-25m` run and once TMDB side features
+(cast, director, recency) give it signal the retriever does not already encode.
+
 ## Methodology
 
 **Temporal split (no future leakage).** Two protocols, both leakage-free:
@@ -96,8 +115,9 @@ interactions in the eval split that were not already in their training history,
 exclude training-seen items from the recommendations, and score the top-K ranking
 with Recall@K, NDCG@K, and MAP@K.
 
-**Baselines to beat.** Popularity (recommend the globally most-watched titles)
-and, coming next, plain content-based similarity.
+**Baselines to beat.** Popularity (the globally most-watched titles) and
+content-based similarity (a user's taste profile averaged over content
+embeddings, retrieved through the same Proxima index).
 
 ## Run it
 
@@ -111,7 +131,8 @@ pip install ../proxima            # the Proxima HNSW extension
 pytest                            # unit tests for metrics, split, retrieval
 
 python scripts/evaluate_baselines.py  --config config/default.yaml   # popularity + content
-python scripts/train_two_tower.py     --config config/default.yaml   # train + evaluate
+python scripts/train_two_tower.py     --config config/default.yaml   # stage 1: retrieval
+python scripts/train_ranker.py        --config config/default.yaml   # stage 2: re-ranking
 python scripts/evaluate_cold_start.py --config config/default.yaml   # cold-start eval
 python scripts/train_two_tower.py     --config config/ml25m.yaml     # headline run
 ```
@@ -127,10 +148,11 @@ config/                 default (dev) and ml25m (headline) configs
 src/reelrank/
   config.py             typed, YAML-backed configuration
   data/                 MovieLens download, filtering, temporal split
-  models/               two-tower encoders + content-aware hybrid item tower
+  models/               two-tower encoders, hybrid item tower, ranker
   features/             content documents + sentence embeddings
-  training/             in-batch-negative training loop
+  training/             two-tower + ranker training, artifact pipeline
   retrieval/            Proxima index wrapper + stage-1 recommender
+  ranking/              stage-2 retrieve-then-rank recommender
   baselines/            popularity + content similarity
   eval/                 metrics + leakage-free harness
 scripts/                runnable entry points

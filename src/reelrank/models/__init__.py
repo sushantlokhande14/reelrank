@@ -2,6 +2,7 @@
 
 from reelrank.models.factory import build_model, model_label
 from reelrank.models.hybrid import HybridItemTower, HybridTwoTower
+from reelrank.models.ranker import Ranker
 from reelrank.models.two_tower import Tower, TwoTower
 
 __all__ = [
@@ -9,6 +10,7 @@ __all__ = [
     "TwoTower",
     "HybridItemTower",
     "HybridTwoTower",
+    "Ranker",
     "build_model",
     "model_label",
 ]

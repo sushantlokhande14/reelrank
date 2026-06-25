@@ -65,6 +65,17 @@ class ContentCfg(BaseModel):
     content_weight: float = 1.0
 
 
+class RankerCfg(BaseModel):
+    hidden: list[int] = [128, 64]
+    dropout: float = 0.1
+    epochs: int = 5
+    batch_size: int = 4096
+    lr: float = 1e-3
+    weight_decay: float = 1e-5
+    n_negatives: int = 20        # sampled negatives per positive (listwise softmax)
+    neg_alpha: float = 0.75      # popularity exponent for negative sampling
+
+
 class EvalCfg(BaseModel):
     k_values: list[int] = [10, 20, 50, 100]
 
@@ -78,6 +89,7 @@ class Config(BaseModel):
     train: TrainCfg = TrainCfg()
     content: ContentCfg = ContentCfg()
     retrieval: RetrievalCfg = RetrievalCfg()
+    ranker: RankerCfg = RankerCfg()
     eval: EvalCfg = EvalCfg()
 
 

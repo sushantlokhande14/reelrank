@@ -47,5 +47,15 @@ retrieval:
   mode: sq8
   candidates: 200
 
+ranker:
+  hidden: [128, 64]
+  dropout: 0.1
+  epochs: 5
+  batch_size: 8192
+  lr: 0.001
+  weight_decay: 0.00001
+  n_negatives: 20
+  neg_alpha: 0.75
+
 eval:
   k_values: [10, 20, 50, 100]
