@@ -39,7 +39,7 @@ then layer on quality and features. Honest checklist of where it is:
 - [x] Content embeddings, content-similarity baseline, hybrid item tower, cold-start eval
 - [x] Neural ranker (stage 2): two-stage retrieve-and-rank
 - [x] TMDB live catalog + daily index refresh
-- [ ] Natural-language vibe search (optionally via the Relay LLM gateway)
+- [x] Natural-language vibe search (optionally via the Relay LLM gateway)
 - [ ] FastAPI backend + React/TypeScript frontend
 - [ ] Dockerized, deployed live demo
 
@@ -101,6 +101,14 @@ the day it appears. `python scripts/refresh_tmdb.py` rebuilds the index (1,952
 MovieLens items plus the current titles); `.github/workflows/refresh.yml` runs it
 on a daily cron.
 
+**Natural-language search.** A free-text request is treated like a brand-new
+item: it is embedded with the same sentence-transformer used for movie content,
+projected into the collaborative item space through the cold-start path, and used
+as the retrieval query. So "a slow-burn sci-fi like Arrival but funnier" returns a
+mix of catalog and current titles ranked by that vibe, no movie id required. Short
+"why we picked this" reasons come from a template by default, or from the Relay
+LLM gateway when it is configured. `python scripts/demo_search.py` tries it.
+
 ## Methodology
 
 **Temporal split (no future leakage).** Two protocols, both leakage-free:
@@ -143,6 +151,7 @@ python scripts/train_two_tower.py     --config config/default.yaml   # stage 1: 
 python scripts/train_ranker.py        --config config/default.yaml   # stage 2: re-ranking
 python scripts/evaluate_cold_start.py --config config/default.yaml   # cold-start eval
 python scripts/refresh_tmdb.py        --config config/default.yaml   # live TMDB catalog (needs TMDB_API_KEY)
+python scripts/demo_search.py --query "a slow-burn sci-fi like Arrival but funnier"
 python scripts/train_two_tower.py     --config config/ml25m.yaml     # headline run
 ```
 
@@ -166,6 +175,7 @@ src/reelrank/
   retrieval/            Proxima index wrapper + stage-1 recommender
   ranking/              stage-2 retrieve-then-rank recommender
   tmdb/                 TMDB client + live-catalog assembly
+  serving/              query engine (NL search, onboarding) + explanations
   baselines/            popularity + content similarity
   eval/                 metrics + leakage-free harness
 scripts/                runnable entry points

@@ -11,9 +11,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import proxima
 
 from reelrank.config import RetrievalCfg
+
+# proxima (a native C++ extension) is imported lazily inside the methods below.
+# Importing it at module load can pull in an OpenMP/MKL runtime before torch and
+# sentence-transformers have loaded theirs, which on Windows aborts the process
+# with an access violation. Deferring the import lets callers load the ML
+# libraries first.
 
 
 class ProximaIndex:
@@ -26,6 +31,8 @@ class ProximaIndex:
         ef_search: int = 128,
         mode: str = "sq8",
     ) -> None:
+        import proxima
+
         self.index = proxima.Index(dim=dim, space=space, M=M, ef_construction=ef_construction)
         self.index.ef = ef_search
         self.mode = mode
@@ -52,6 +59,8 @@ class ProximaIndex:
 
     @classmethod
     def load(cls, path: str | Path, ef_search: int = 128, mode: str = "sq8") -> "ProximaIndex":
+        import proxima
+
         obj = cls.__new__(cls)
         obj.index = proxima.load(str(path))
         obj.index.ef = ef_search
