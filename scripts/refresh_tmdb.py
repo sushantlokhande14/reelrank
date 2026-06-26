@@ -23,7 +23,7 @@ import numpy as np
 import torch
 
 from reelrank.config import load_config
-from reelrank.data.movielens import build_dataset
+from reelrank.data.movielens import build_dataset, item_train_counts
 from reelrank.features.content import build_content_embeddings
 from reelrank.features.embedder import ContentEmbedder
 from reelrank.retrieval.proxima_index import ProximaIndex
@@ -65,17 +65,44 @@ def main() -> None:
 
     ml_to_tmdb = movielens_to_tmdb(cfg, data)
     catalog: list[dict] = []
+    ml_entries: dict[int, dict] = {}
     for row in data.movies.itertuples(index=False):
-        catalog.append(
+        entry = {
+            "id": int(row.item_idx),
+            "source": "movielens",
+            "title": str(row.title),
+            "genres": [g for g in str(row.genres).split("|") if g],
+            "tmdb_id": ml_to_tmdb.get(int(row.item_idx)),
+            "poster_url": None,
+            "onboarding": False,
+        }
+        ml_entries[int(row.item_idx)] = entry
+        catalog.append(entry)
+
+    # Enrich the most popular, recognizable titles with posters/metadata so the
+    # "pick a few movies you like" onboarding screen has real artwork.
+    counts = item_train_counts(data)
+    top = np.argsort(counts)[::-1][: cfg.tmdb.onboarding_size]
+    print(f"enriching {len(top)} onboarding titles with posters...")
+    for item_idx in top.tolist():
+        entry = ml_entries.get(int(item_idx))
+        if not entry or not entry["tmdb_id"]:
+            continue
+        try:
+            meta = client.fetch_meta(entry["tmdb_id"])
+        except Exception:  # noqa: BLE001
+            continue
+        entry.update(
             {
-                "id": int(row.item_idx),
-                "source": "movielens",
-                "title": str(row.title),
-                "genres": [g for g in str(row.genres).split("|") if g],
-                "tmdb_id": ml_to_tmdb.get(int(row.item_idx)),
-                "poster_url": None,
+                "poster_url": meta.poster_url,
+                "year": meta.year,
+                "overview": meta.overview,
+                "director": meta.director,
+                "cast": meta.cast,
+                "onboarding": True,
             }
         )
+
     for offset, meta in enumerate(metas):
         catalog.append(
             {

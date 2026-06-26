@@ -74,6 +74,7 @@ class TmdbCfg(BaseModel):
     max_cast: int = 5            # top-billed cast folded into the content text
     request_timeout: float = 15.0
     live_pages: int = 2          # pages of trending + now-playing to pull (20/page)
+    onboarding_size: int = 60    # popular MovieLens titles enriched with posters for onboarding
 
 
 class RankerCfg(BaseModel):
