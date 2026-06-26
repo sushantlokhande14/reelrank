@@ -1,0 +1,28 @@
+.git
+.github
+**/__pycache__
+*.py[cod]
+*.egg-info
+.venv
+venv
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# regenerated inside the build
+data
+artifacts
+*.idx
+*.npy
+*.pt
+
+# frontend is deployed separately (Vercel)
+frontend
+
+# never ship secrets
+.env
+.env.*
+
+# editors
+.vscode
+.idea

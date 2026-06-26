@@ -1,0 +1,16 @@
+# Render blueprint for the reelrank backend (Docker web service).
+# Deploy: push to GitHub, then in Render create a new Blueprint from this repo.
+# Set TMDB_API_KEY and ALLOW_ORIGINS in the dashboard (they are not synced here).
+services:
+  - type: web
+    name: reelrank-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter # free tier may be too small for torch; starter (512MB) or up
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: TMDB_API_KEY
+        sync: false
+      - key: ALLOW_ORIGINS
+        sync: false # set to your Vercel URL, e.g. https://reelrank.vercel.app

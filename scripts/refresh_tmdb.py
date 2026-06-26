@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -43,22 +44,33 @@ def main() -> None:
     data = build_dataset(cfg)
     content_emb = build_content_embeddings(cfg, data)
     model = load_two_tower_model(cfg, data, content_emb)
+    ml_emb = np.load(Path(cfg.paths.artifacts) / cfg.data.dataset / "item_embeddings.npy")
 
-    client = TMDBClient(cfg.tmdb)
-    metas = fetch_live_catalog(client, cfg.tmdb.live_pages)
+    # TMDB is optional: without a key we still build a MovieLens-only serving index
+    # so the image/app works. The daily refresh (with the key) adds live titles.
+    client = TMDBClient(cfg.tmdb) if os.environ.get("TMDB_API_KEY") else None
+    if client is None:
+        print("TMDB_API_KEY not set: building a MovieLens-only serving index")
+
+    metas = fetch_live_catalog(client, cfg.tmdb.live_pages) if client else []
     print(f"fetched {len(metas)} live titles from TMDB")
 
-    embedder = ContentEmbedder(cfg.content.model)
-    live_content = embedder.encode(
-        [tmdb_content_text(m) for m in metas], batch_size=cfg.content.batch_size
-    )
-    with torch.no_grad():
-        live_emb = (
-            model.item_tower.embed_cold(torch.from_numpy(live_content)).cpu().numpy().astype(np.float32)
+    if metas:
+        embedder = ContentEmbedder(cfg.content.model, device="cpu")
+        live_content = embedder.encode(
+            [tmdb_content_text(m) for m in metas], batch_size=cfg.content.batch_size
         )
+        with torch.no_grad():
+            live_emb = (
+                model.item_tower.embed_cold(torch.from_numpy(live_content))
+                .cpu()
+                .numpy()
+                .astype(np.float32)
+            )
+        serving_emb = np.concatenate([ml_emb, live_emb], axis=0)
+    else:
+        serving_emb = ml_emb
 
-    ml_emb = np.load(Path(cfg.paths.artifacts) / cfg.data.dataset / "item_embeddings.npy")
-    serving_emb = np.concatenate([ml_emb, live_emb], axis=0)
     index = ProximaIndex.from_config(serving_emb.shape[1], cfg.retrieval).build(
         serving_emb, labels=np.arange(serving_emb.shape[0], dtype=np.int64)
     )
@@ -82,8 +94,9 @@ def main() -> None:
     # Enrich the most popular, recognizable titles with posters/metadata so the
     # "pick a few movies you like" onboarding screen has real artwork.
     counts = item_train_counts(data)
-    top = np.argsort(counts)[::-1][: cfg.tmdb.onboarding_size]
-    print(f"enriching {len(top)} onboarding titles with posters...")
+    top = np.argsort(counts)[::-1][: cfg.tmdb.onboarding_size] if client else np.empty(0, int)
+    if client:
+        print(f"enriching {len(top)} onboarding titles with posters...")
     for item_idx in top.tolist():
         entry = ml_entries.get(int(item_idx))
         if not entry or not entry["tmdb_id"]:

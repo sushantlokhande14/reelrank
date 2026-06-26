@@ -41,7 +41,7 @@ then layer on quality and features. Honest checklist of where it is:
 - [x] TMDB live catalog + daily index refresh
 - [x] Natural-language vibe search (optionally via the Relay LLM gateway)
 - [x] FastAPI backend + React/TypeScript frontend (cinema-forward, cold-start onboarding)
-- [ ] Dockerized, deployed live demo
+- [x] Dockerized; Render + Vercel deploy config and guide (see [DEPLOY.md](DEPLOY.md))
 
 ## Results so far
 
