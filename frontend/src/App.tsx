@@ -84,7 +84,7 @@ export default function App() {
       <header className="site-header">
         <div className="brand">
           <span className="dot" />
-          reel<span>rank</span>
+          Reel <span>Rank</span>
         </div>
         <div className="header-tag">two-stage recommender · vector search over Proxima</div>
       </header>

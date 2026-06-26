@@ -1,4 +1,4 @@
-# reelrank
+# Reel Rank
 
 A two-stage hybrid movie recommender. Given a user, a few liked titles, or a
 free-text request like "a slow-burn sci-fi like Arrival but funnier", it returns
