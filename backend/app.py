@@ -15,6 +15,7 @@ and free-tier cold starts. Endpoints:
 from __future__ import annotations
 
 import os
+import threading
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,14 +28,20 @@ load_env()
 cfg = load_config(os.environ.get("REELRANK_CONFIG", "config/default.yaml"))
 
 _engine = None
+_engine_lock = threading.Lock()
 
 
 def get_engine():
+    # Double-checked locking: build the engine exactly once even under concurrent
+    # first requests. Initializing the native torch/Proxima runtimes from two
+    # threads at once crashes the process, so creation must be serialized.
     global _engine
     if _engine is None:
-        from reelrank.serving.engine import RecommendEngine
+        with _engine_lock:
+            if _engine is None:
+                from reelrank.serving.engine import RecommendEngine
 
-        _engine = RecommendEngine.from_artifacts(cfg)
+                _engine = RecommendEngine.from_artifacts(cfg)
     return _engine
 
 

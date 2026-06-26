@@ -40,7 +40,7 @@ then layer on quality and features. Honest checklist of where it is:
 - [x] Neural ranker (stage 2): two-stage retrieve-and-rank
 - [x] TMDB live catalog + daily index refresh
 - [x] Natural-language vibe search (optionally via the Relay LLM gateway)
-- [ ] FastAPI backend + React/TypeScript frontend
+- [x] FastAPI backend + React/TypeScript frontend (cinema-forward, cold-start onboarding)
 - [ ] Dockerized, deployed live demo
 
 ## Results so far
@@ -162,6 +162,22 @@ The first run downloads MovieLens into `data/raw/` and caches the processed spli
 under `data/processed/`. Trained embeddings and the Proxima index land in
 `artifacts/<dataset>/`.
 
+### The app
+
+```bash
+pip install -e ".[serve]"                         # fastapi + uvicorn
+uvicorn backend.app:app --port 8000               # serving API (needs a serving index)
+
+cd frontend && npm install && npm run dev         # http://localhost:5173
+```
+
+The API loads the model lazily, so `/health` stays cheap for warm pings; the first
+real request triggers a one-time load. The frontend onboards an anonymous visitor
+with "pick a few you like" and supports the free-text vibe search. On Windows the
+math libraries are pinned to a single thread to avoid an OpenMP/MKL load-order
+crash between torch, sentence-transformers, and the Proxima extension; the Docker
+image (Linux) is the supported runtime.
+
 ## Layout
 
 ```
@@ -178,6 +194,8 @@ src/reelrank/
   serving/              query engine (NL search, onboarding) + explanations
   baselines/            popularity + content similarity
   eval/                 metrics + leakage-free harness
+backend/                FastAPI serving app
+frontend/               React + TypeScript app (Vite)
 scripts/                runnable entry points
 tests/                  pytest
 ```

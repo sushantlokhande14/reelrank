@@ -10,6 +10,7 @@ sci-fi like Arrival but funnier" is answered in the same space as everything els
 from __future__ import annotations
 
 import json
+import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -35,7 +36,9 @@ def build_query_encoder(cfg: Config) -> QueryEncoder:
     data = build_dataset(cfg)
     content_emb = build_content_embeddings(cfg, data)
     model = load_two_tower_model(cfg, data, content_emb)
-    embedder = ContentEmbedder(cfg.content.model)
+    # Serve on CPU: the deploy host has no GPU, and it sidesteps concurrent-CUDA
+    # crashes when several requests arrive at once.
+    embedder = ContentEmbedder(cfg.content.model, device="cpu")
 
     def encode(text: str) -> np.ndarray:
         content = embedder.encode([text], batch_size=cfg.content.batch_size)
@@ -61,6 +64,9 @@ class RecommendEngine:
         self.catalog = catalog
         self.catalog_by_id = {int(c["id"]): c for c in catalog}
         self._encoder = query_encoder
+        # Serialize inference: torch forward passes and the lazy encoder build are
+        # not safe to run from several request threads at once.
+        self._lock = threading.Lock()
 
     @classmethod
     def from_artifacts(cls, cfg: Config) -> "RecommendEngine":
@@ -82,10 +88,11 @@ class RecommendEngine:
 
     # -- query types ------------------------------------------------------- #
     def search_text(self, query: str, k: int = 20) -> list[dict]:
-        if self._encoder is None:
-            self._encoder = build_query_encoder(self.cfg)
-        vector = self._encoder(query)
-        return self._retrieve(vector, k, exclude=set())
+        with self._lock:
+            if self._encoder is None:
+                self._encoder = build_query_encoder(self.cfg)
+            vector = self._encoder(query)
+            return self._retrieve(vector, k, exclude=set())
 
     def recommend_from_seeds(self, seed_ids: Sequence[int], k: int = 20) -> list[dict]:
         """Cold-start onboarding: average the picked titles' embeddings into a
@@ -95,7 +102,8 @@ class RecommendEngine:
             return []
         vector = self.embeddings[seeds].mean(axis=0, keepdims=True)
         vector = vector / (np.linalg.norm(vector) + 1e-8)
-        return self._retrieve(vector.astype(np.float32), k, exclude=set(seeds))
+        with self._lock:
+            return self._retrieve(vector.astype(np.float32), k, exclude=set(seeds))
 
     def item(self, item_id: int) -> dict | None:
         return self.catalog_by_id.get(int(item_id))
